@@ -166,6 +166,7 @@ UserHandler = class UserHandler extends Handler
             return callback({res: err.message, code: err.code})
           if err.res and err.code
             callback(err)
+          console.log err.stack # TODO: Make sure runtime errors are logged properly
           SubscriptionHandler.logSubscriptionError(user, 'Subscription error: '+(err.type or err.message))
           callback({res: 'Subscription error.', code: 500})
         )

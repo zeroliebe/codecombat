@@ -180,32 +180,6 @@ class SubscriptionHandler extends Handler
                     @logSubscriptionError(req.user, "Year sub sale Slack tower msg error: #{JSON.stringify(error)}")
                   @sendSuccess(res, user)
 
-  updateUser: (req, user, customer, subscription, increment, done) ->
-    stripeInfo = _.cloneDeep(user.get('stripe') ? {})
-    stripeInfo.planID = 'basic'
-    stripeInfo.subscriptionID = subscription.id
-    stripeInfo.customerID = customer.id
-
-    # To make sure things work for admins, who are mad with power
-    # And, so Handler.saveChangesToDocument doesn't undo all our saves here
-    req.body.stripe = stripeInfo
-    user.set('stripe', stripeInfo)
-
-    Product.findBasicSubscriptionForUser(user).catch(done).then (product) =>
-      return done({res: 'basic_subscription product not found.', code: 404}) unless product
-
-      if increment
-        purchased = _.clone(user.get('purchased'))
-        purchased ?= {}
-        purchased.gems ?= 0
-        purchased.gems += product.get('gems') if product.get('gems')
-        user.set('purchased', purchased)
-
-      user.save (err) =>
-        if err
-          @logSubscriptionError(user, 'Stripe user plan saving error. ' + err)
-          return done({res: 'Database error.', code: 500})
-        done()
 
   updateStripeRecipientSubscriptions: (req, user, customer, done) ->
     return done({res: 'Database error.', code: 500}) unless req.body.stripe?.subscribeEmails?

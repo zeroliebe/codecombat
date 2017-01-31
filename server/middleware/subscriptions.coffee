@@ -1,12 +1,13 @@
 errors = require '../commons/errors'
 wrap = require 'co-express'
+co = require 'co'
 Prepaid = require '../models/Prepaid'
 log = require 'winston'
 SubscriptionHandler = require('../handlers/subscription_handler')
 Promise = require('bluebird')
-SubscriptionHandler.updateUserAsync = Promise.promisify(SubscriptionHandler.updateUser)
 { findStripeSubscription } = require '../lib/utils'
 findStripeSubscriptionAsync = Promise.promisify(findStripeSubscription)
+Product = require '../models/Product'
 
 subscribeWithPrepaidCode = wrap (req, res) ->
   { ppc } = req.body
@@ -21,7 +22,7 @@ subscribeWithPrepaidCode = wrap (req, res) ->
   res.send(req.user.toObject({req}))
 
 
-subscribeUser = wrap (req, user) ->
+subscribeUser = co.wrap (req, user) ->
   if (not req.user) or req.user.isAnonymous() or user.isAnonymous()
     throw new errors.Unauthorized('You must be signed in to subscribe.')
 
@@ -69,7 +70,7 @@ subscribeUser = wrap (req, user) ->
     yield checkForCoupon(req, user, customer)
 
 
-checkForCoupon = wrap (req, user, customer) ->
+checkForCoupon = co.wrap (req, user, customer) ->
   
   { prepaidCode } = req.body?.stripe or {}
   
@@ -100,10 +101,10 @@ checkForCoupon = wrap (req, user, customer) ->
     update = { redeemers: redeemers }
     result = yield Prepaid.update(query, update, {})
     if result.nModified > 1
-      @logSubscriptionError(user, "Prepaid nModified=#{result.nModified} error.")
-      return done({res: 'Database error.', code: 500})
+      SubscriptionHandler.logSubscriptionError(user, "Prepaid nModified=#{result.nModified} error.")
+      throw new errors.InternalServerError('Database error.')
     if result.nModified < 1
-      return done({res: 'Prepaid not active', code: 403})
+      throw new errors.Forbidden('Prepaid not active')
 
     # Update user
     stripeInfo = _.cloneDeep(user.get('stripe') ? {})
@@ -121,7 +122,7 @@ checkForCoupon = wrap (req, user, customer) ->
     yield checkForExistingSubscription(req, user, customer, couponID)
 
 
-checkForExistingSubscription = wrap (req, user, customer, couponID) ->
+checkForExistingSubscription = co.wrap (req, user, customer, couponID) ->
   subscriptionID = user.get('stripe')?.subscriptionID
   subscription = yield findStripeSubscriptionAsync(customer.id, { subscriptionID })
 
@@ -136,32 +137,59 @@ checkForExistingSubscription = wrap (req, user, customer, couponID) ->
       options = { plan: 'basic', metadata: {id: user.id}, trial_end: subscription.current_period_end }
       options.coupon = couponID if couponID
       newSubscription = yield stripe.customers.createSubscription(customer.id, options)
-      yield SubscriptionHandler.updateUserAsync(req, user, customer, newSubscription, false)
+      yield updateUser(req, user, customer, newSubscription, false)
 
     else if couponID
       # Update subscription with given couponID
       newSubscription = yield stripe.customers.updateSubscription(customer.id, subscription.id, { coupon: couponID })
-      yield SubscriptionHandler.updateUserAsync(req, user, customer, newSubscription, false)
+      yield updateUser(req, user, customer, newSubscription, false)
 
     else
       # Skip creating the subscription
-      yield SubscriptionHandler.updateUserAsync(req, user, customer, subscription, false)
+      yield updateUser(req, user, customer, subscription, false)
 
   else
     options = { plan: 'basic', metadata: {id: user.id} }
     options.coupon = couponID if couponID
     try
       newSubscription = yield stripe.customers.createSubscription(customer.id, options)
-      return yield SubscriptionHandler.updateUserAsync(req, user, customer, newSubscription, true)
+      yield updateUser(req, user, customer, newSubscription, true)
     catch err
       SubscriptionHandler.logSubscriptionError(user, 'Stripe customer plan setting error. ' + err)
+      if err.stack
+        throw err
       if err.message.indexOf('No such coupon') is -1
         throw new errors.InternalServerError('Database error.')
 
       delete options.coupon
       newSubscription = yield stripe.customers.createSubscription(customer.id, options)
-      yield SubscriptionHandler.updateUserAsync(req, user, customer, newSubscription, true)
-    
+      yield updateUser(req, user, customer, newSubscription, true)
+
+
+updateUser = co.wrap (req, user, customer, subscription, increment) ->
+  stripeInfo = _.cloneDeep(user.get('stripe') ? {})
+  stripeInfo.planID = 'basic'
+  stripeInfo.subscriptionID = subscription.id
+  stripeInfo.customerID = customer.id
+
+  # TODO: Remove this once this logic is no longer mixed in with saving users
+  # To make sure things work for admins, who are mad with power
+  # And, so Handler.saveChangesToDocument doesn't undo all our saves here
+  req.body.stripe = stripeInfo
+  user.set('stripe', stripeInfo)
+
+  product = yield Product.findBasicSubscriptionForUser(user)
+  unless product
+    throw new errors.NotFound('basic_subscription product not found.')
+
+  if increment
+    purchased = _.clone(user.get('purchased'))
+    purchased ?= {}
+    purchased.gems ?= 0
+    purchased.gems += product.get('gems') if product.get('gems')
+    user.set('purchased', purchased)
+
+  yield user.save()
       
 module.exports = {
   subscribeWithPrepaidCode
