@@ -807,23 +807,6 @@ describe 'Subscriptions', ->
                           nockDone()
                           done()
 
-    xit 'year_sale with sponsored sub', (done) ->
-      nockUtils.setupNock 'sub-test-40.json', (err, nockDone) ->
-        stripe.tokens.create {
-          card: { number: '4242424242424242', exp_month: 12, exp_year: 2020, cvc: '123' }
-        }, (err, token) ->
-          loginNewUser (user1) ->
-            user1.set('stripe', {sponsorID: 'dummyID'})
-            user1.save (err, user1) ->
-              expect(err).toBeNull()
-              requestBody =
-                stripe:
-                  token: token.id
-                  timestamp: new Date()
-              request.put {uri: "#{subscriptionURL}/-/year_sale", json: requestBody, headers: headers }, (err, res) ->
-                expect(err).toBeNull()
-                nockDone()
-                done()
                 
   describe 'Countries', ->
     it 'Brazil users get Brazil coupon', (done) ->
