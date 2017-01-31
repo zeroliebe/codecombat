@@ -807,7 +807,7 @@ describe 'Subscriptions', ->
                           nockDone()
                           done()
 
-    it 'year_sale with sponsored sub', (done) ->
+    xit 'year_sale with sponsored sub', (done) ->
       nockUtils.setupNock 'sub-test-40.json', (err, nockDone) ->
         stripe.tokens.create {
           card: { number: '4242424242424242', exp_month: 12, exp_year: 2020, cvc: '123' }
@@ -824,47 +824,47 @@ describe 'Subscriptions', ->
                 expect(err).toBeNull()
                 nockDone()
                 done()
+                
+  describe 'Countries', ->
+    it 'Brazil users get Brazil coupon', (done) ->
+      nockUtils.setupNock 'sub-test-41.json', (err, nockDone) ->
+        stripe.tokens.create {
+          card: { number: '4242424242424242', exp_month: 12, exp_year: 2030, cvc: '123' }
+        }, (err, token) ->
+          loginNewUser (user1) ->
+            user1.set('country', 'brazil')
+            user1.save (err, user1) ->
+              requestBody = user1.toObject()
+              requestBody.stripe =
+                planID: 'basic'
+                token: token.id
+              request.put {uri: userURL, json: requestBody, headers: headers }, (err, res, updatedUser) ->
+                expect(err).toBeNull()
+                expect(res.statusCode).toBe(200)
+                expect(updatedUser.country).toBe('brazil')
+                expect(updatedUser.purchased.gems).toBe(subGemsBrazil)
+                expect(updatedUser.stripe.planID).toBe('basic')
+                expect(updatedUser.stripe.customerID).toBeTruthy()
 
-#  xdescribe 'Countries', ->
-#    it 'Brazil users get Brazil coupon', (done) ->
-#      nockUtils.setupNock 'sub-test-41.json', (err, nockDone) ->
-#        stripe.tokens.create {
-#          card: { number: '4242424242424242', exp_month: 12, exp_year: 2030, cvc: '123' }
-#        }, (err, token) ->
-#          loginNewUser (user1) ->
-#            user1.set('country', 'brazil')
-#            user1.save (err, user1) ->
-#              requestBody = user1.toObject()
-#              requestBody.stripe =
-#                planID: 'basic'
-#                token: token.id
-#              request.put {uri: userURL, json: requestBody, headers: headers }, (err, res, updatedUser) ->
-#                expect(err).toBeNull()
-#                expect(res.statusCode).toBe(200)
-#                expect(updatedUser.country).toBe('brazil')
-#                expect(updatedUser.purchased.gems).toBe(subGemsBrazil)
-#                expect(updatedUser.stripe.planID).toBe('basic')
-#                expect(updatedUser.stripe.customerID).toBeTruthy()
-#
-#                stripe.invoices.list {customer: updatedUser.stripe.customerID}, (err, invoices) ->
-#                  expect(err).toBeNull()
-#                  expect(invoices).not.toBeNull()
-#                  expect(invoices.data.length).toBe(1)
-#                  expect(invoices.data[0].discount?.coupon).toBeTruthy()
-#                  expect(invoices.data[0].discount?.coupon?.id).toBe('brazil')
-#                  expect(invoices.data[0].total).toBeLessThan(subPrice)
-#
-#                  # Now we hit our webhook to see if the right Payment is made.
-#                  event = _.cloneDeep(invoiceChargeSampleEvent)
-#                  event.data.object = invoices.data[0]
-#                  request.post {uri: webhookURL, json: event}, (err, res, body) ->
-#                    expect(err).toBeNull()
-#                    expect(res.statusCode).toBe(201)
-#                    Payment.findOne 'stripe.customerID': updatedUser.stripe.customerID, (err, payment) ->
-#                      expect(err).toBeNull()
-#                      expect(payment).toBeTruthy()
-#                      return done() unless payment
-#                      expect(payment.get('gems')).toEqual(subGemsBrazil)
-#                      expect(payment.get('amount')).toBeLessThan(subPrice)
-#                      nockDone()
-#                      done()
+                stripe.invoices.list {customer: updatedUser.stripe.customerID}, (err, invoices) ->
+                  expect(err).toBeNull()
+                  expect(invoices).not.toBeNull()
+                  expect(invoices.data.length).toBe(1)
+                  expect(invoices.data[0].discount?.coupon).toBeTruthy()
+                  expect(invoices.data[0].discount?.coupon?.id).toBe('brazil')
+                  expect(invoices.data[0].total).toBeLessThan(subPrice)
+
+                  # Now we hit our webhook to see if the right Payment is made.
+                  event = _.cloneDeep(invoiceChargeSampleEvent)
+                  event.data.object = invoices.data[0]
+                  request.post {uri: webhookURL, json: event}, (err, res, body) ->
+                    expect(err).toBeNull()
+                    expect(res.statusCode).toBe(201)
+                    Payment.findOne 'stripe.customerID': updatedUser.stripe.customerID, (err, payment) ->
+                      expect(err).toBeNull()
+                      expect(payment).toBeTruthy()
+                      return done() unless payment
+                      expect(payment.get('gems')).toEqual(subGemsBrazil)
+                      expect(payment.get('amount')).toBeLessThan(subPrice)
+                      nockDone()
+                      done()
