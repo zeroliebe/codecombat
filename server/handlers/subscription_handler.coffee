@@ -180,57 +180,6 @@ class SubscriptionHandler extends Handler
                     @logSubscriptionError(req.user, "Year sub sale Slack tower msg error: #{JSON.stringify(error)}")
                   @sendSuccess(res, user)
 
-  checkForExistingSubscription: (req, user, customer, couponID, done) ->
-    findStripeSubscription customer.id, subscriptionID: user.get('stripe')?.subscriptionID, (err, subscription) =>
-
-      if subscription
-
-        if subscription.cancel_at_period_end
-          # Things are a little tricky here. Can't re-enable a cancelled subscription,
-          # so it needs to be deleted, but also don't want to charge for the new subscription immediately.
-          # So delete the cancelled subscription (no at_period_end given here) and give the new
-          # subscription a trial period that ends when the cancelled subscription would have ended.
-          stripe.customers.cancelSubscription subscription.customer, subscription.id, (err) =>
-            if err
-              @logSubscriptionError(user, 'Stripe cancel subscription error. ' + err)
-              return done({res: 'Database error.', code: 500})
-            options = { plan: 'basic', metadata: {id: user.id}, trial_end: subscription.current_period_end }
-            options.coupon = couponID if couponID
-            stripe.customers.createSubscription customer.id, options, (err, subscription) =>
-              if err
-                @logSubscriptionError(user, 'Stripe customer plan resetting error. ' + err)
-                return done({res: 'Database error.', code: 500})
-              @updateUser(req, user, customer, subscription, false, done)
-
-        else if couponID
-          # Update subscription with given couponID
-          stripe.customers.updateSubscription customer.id, subscription.id, coupon: couponID, (err, subscription) =>
-            if err
-              @logSubscriptionError(user, 'Stripe update subscription coupon error. ' + err)
-              return done({res: 'Database error.', code: 500})
-            @updateUser(req, user, customer, subscription, false, done)
-
-        else
-          # Skip creating the subscription
-          @updateUser(req, user, customer, subscription, false, done)
-
-      else
-        options = { plan: 'basic', metadata: {id: user.id}}
-        options.coupon = couponID if couponID
-        stripe.customers.createSubscription customer.id, options, (err, subscription) =>
-          if not err
-            return @updateUser(req, user, customer, subscription, true, done)
-          @logSubscriptionError(user, 'Stripe customer plan setting error. ' + err)
-          if err.message.indexOf('No such coupon') is -1
-            return done({res: 'Database error.', code: 500})
-          # Try again without the coupon
-          delete options.coupon
-          stripe.customers.createSubscription customer.id, options, (err, subscription) =>
-            if err
-              @logSubscriptionError(user, 'Stripe customer plan setting error. ' + err)
-              return done({res: 'Database error.', code: 500})
-            @updateUser(req, user, customer, subscription, true, done)
-
   updateUser: (req, user, customer, subscription, increment, done) ->
     stripeInfo = _.cloneDeep(user.get('stripe') ? {})
     stripeInfo.planID = 'basic'

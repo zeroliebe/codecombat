@@ -4,7 +4,9 @@ Prepaid = require '../models/Prepaid'
 log = require 'winston'
 SubscriptionHandler = require('../handlers/subscription_handler')
 Promise = require('bluebird')
-SubscriptionHandler.checkForExistingSubscriptionAsync = Promise.promisify(SubscriptionHandler.checkForExistingSubscription)
+SubscriptionHandler.updateUserAsync = Promise.promisify(SubscriptionHandler.updateUser)
+{ findStripeSubscription } = require '../lib/utils'
+findStripeSubscriptionAsync = Promise.promisify(findStripeSubscription)
 
 subscribeWithPrepaidCode = wrap (req, res) ->
   { ppc } = req.body
@@ -107,7 +109,7 @@ checkForCoupon = wrap (req, user, customer) ->
     stripeInfo = _.cloneDeep(user.get('stripe') ? {})
     _.assign(stripeInfo, { prepaidCode, couponID })
     user.set('stripe', stripeInfo)
-    yield SubscriptionHandler.checkForExistingSubscriptionAsync(req, user, customer, couponID)
+    yield checkForExistingSubscription(req, user, customer, couponID)
 
   else
     couponID = user.get('stripe')?.couponID
@@ -116,8 +118,51 @@ checkForCoupon = wrap (req, user, customer) ->
       unless product.name is 'basic_subscription'
         # We have a customized product for this country
         couponID = user.get 'country'
-    yield SubscriptionHandler.checkForExistingSubscriptionAsync(req, user, customer, couponID)
-        
+    yield checkForExistingSubscription(req, user, customer, couponID)
+
+
+checkForExistingSubscription = wrap (req, user, customer, couponID) ->
+  subscriptionID = user.get('stripe')?.subscriptionID
+  subscription = yield findStripeSubscriptionAsync(customer.id, { subscriptionID })
+
+  if subscription
+
+    if subscription.cancel_at_period_end
+      # Things are a little tricky here. Can't re-enable a cancelled subscription,
+      # so it needs to be deleted, but also don't want to charge for the new subscription immediately.
+      # So delete the cancelled subscription (no at_period_end given here) and give the new
+      # subscription a trial period that ends when the cancelled subscription would have ended.
+      yield stripe.customers.cancelSubscription(subscription.customer, subscription.id)
+      options = { plan: 'basic', metadata: {id: user.id}, trial_end: subscription.current_period_end }
+      options.coupon = couponID if couponID
+      newSubscription = yield stripe.customers.createSubscription(customer.id, options)
+      yield SubscriptionHandler.updateUserAsync(req, user, customer, newSubscription, false)
+
+    else if couponID
+      # Update subscription with given couponID
+      newSubscription = yield stripe.customers.updateSubscription(customer.id, subscription.id, { coupon: couponID })
+      yield SubscriptionHandler.updateUserAsync(req, user, customer, newSubscription, false)
+
+    else
+      # Skip creating the subscription
+      yield SubscriptionHandler.updateUserAsync(req, user, customer, subscription, false)
+
+  else
+    options = { plan: 'basic', metadata: {id: user.id} }
+    options.coupon = couponID if couponID
+    try
+      newSubscription = yield stripe.customers.createSubscription(customer.id, options)
+      return yield SubscriptionHandler.updateUserAsync(req, user, customer, newSubscription, true)
+    catch err
+      SubscriptionHandler.logSubscriptionError(user, 'Stripe customer plan setting error. ' + err)
+      if err.message.indexOf('No such coupon') is -1
+        throw new errors.InternalServerError('Database error.')
+
+      delete options.coupon
+      newSubscription = yield stripe.customers.createSubscription(customer.id, options)
+      yield SubscriptionHandler.updateUserAsync(req, user, customer, newSubscription, true)
+    
+      
 module.exports = {
   subscribeWithPrepaidCode
   subscribeUser
