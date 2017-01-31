@@ -139,26 +139,10 @@ UserHandler = class UserHandler extends Handler
     (req, user, callback) ->
       return callback(null, req, user) unless req.headers['x-change-plan'] # ensure only saves that are targeted at changing the subscription actually affect the subscription
       return callback(null, req, user) unless req.body.stripe
-      finishSubscription = (hasPlan, wantsPlan) ->
-        return callback(null, req, user) if hasPlan is wantsPlan
-        if wantsPlan and not hasPlan
-          middleware.subscriptions.subscribeUser(req, user)
-          .then(-> callback(null, req, user))
-          .catch((err) ->
-            if err instanceof errors.NetworkError
-              return callback({res: err.message, code: err.code})
-            if err.res and err.code
-              callback(err)
-            console.log err.stack # TODO: Make sure runtime errors are logged properly
-            SubscriptionHandler.logSubscriptionError(user, 'Subscription error: '+(err.type or err.message))
-            callback({res: 'Subscription error.', code: 500})
-          )
-        else if hasPlan and not wantsPlan
-          SubscriptionHandler.unsubscribeUser(req, user, (err) ->
-            return callback(err) if err
-            return callback(null, req, user)
-          )
-      if req.body.stripe.subscribeEmails?
+      wantsPlan = req.body.stripe.planID?
+      hasPlan = user.get('stripe')?.planID? and not req.body.stripe.prepaidCode?
+      return callback(null, req, user) if hasPlan is wantsPlan
+      if wantsPlan and not hasPlan
         middleware.subscriptions.subscribeUser(req, user)
         .then(-> callback(null, req, user))
         .catch((err) ->
@@ -170,15 +154,11 @@ UserHandler = class UserHandler extends Handler
           SubscriptionHandler.logSubscriptionError(user, 'Subscription error: '+(err.type or err.message))
           callback({res: 'Subscription error.', code: 500})
         )
-      else if req.body.stripe.unsubscribeEmail?
+      else if hasPlan and not wantsPlan
         SubscriptionHandler.unsubscribeUser(req, user, (err) ->
           return callback(err) if err
           return callback(null, req, user)
         )
-      else
-        wantsPlan = req.body.stripe.planID?
-        hasPlan = user.get('stripe')?.planID? and not req.body.stripe.prepaidCode?
-        finishSubscription hasPlan, wantsPlan
 
     # Discount setting
     (req, user, callback) ->
