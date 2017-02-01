@@ -1,16 +1,18 @@
 errors = require '../commons/errors'
-wrap = require 'co-express'
+expressWrap = require 'co-express'
 co = require 'co'
 Prepaid = require '../models/Prepaid'
 log = require 'winston'
 SubscriptionHandler = require('../handlers/subscription_handler')
 Promise = require('bluebird')
-{ findStripeSubscription } = require '../lib/utils'
-findStripeSubscriptionAsync = Promise.promisify(findStripeSubscription)
+libUtils = require('../lib/utils')
 Product = require '../models/Product'
 User = require '../models/User'
+database = require '../commons/database'
+{ getSponsoredSubsAmount } = require '../../app/core/utils'
+StripeUtils = require '../lib/stripe_utils'
 
-subscribeWithPrepaidCode = wrap (req, res) ->
+subscribeWithPrepaidCode = expressWrap (req, res) ->
   { ppc } = req.body
   unless ppc and _.isString(ppc)
     throw new errors.UnprocessableEntity('You must provide a valid prepaid code.')
@@ -125,7 +127,7 @@ checkForCoupon = co.wrap (req, user, customer) ->
 
 checkForExistingSubscription = co.wrap (req, user, customer, couponID) ->
   subscriptionID = user.get('stripe')?.subscriptionID
-  subscription = yield findStripeSubscriptionAsync(customer.id, { subscriptionID })
+  subscription = yield libUtils.findStripeSubscriptionAsync(customer.id, { subscriptionID })
 
   if subscription
 
@@ -202,9 +204,151 @@ unsubscribeUser = co.wrap (req, user) ->
   yield user.save()
 
 
+purchaseProduct = expressWrap (req, res) ->
+  productName = req.params.handle or 'year_subscription' 
+  if req.user.get('stripe.sponsorID')
+    throw new errors.Forbidden('Sponsored subscribers may not purchase products.')
+  unless productName in ['year_subscription', 'lifetime_subscription']
+    throw new errors.UnprocessableEntity('Unsupported product')
+  customer = yield StripeUtils.getCustomerAsync(req.user, req.body.stripe?.token)
+  subscription = yield libUtils.findStripeSubscriptionAsync(customer.id, {subscriptionID: req.user.get('stripe')?.subscriptionID})
+  stripeSubscriptionPeriodEndDate = new Date(subscription.current_period_end * 1000) if subscription
+  yield StripeUtils.cancelSubscriptionImmediatelyAsync(req.user, subscription)
+  product = yield Product.findOne({name: productName})
+  if not product
+    throw new errors.NotFound('Product not found')
+  
+  metadata = {
+    type: req.body.type
+    userID: req.user.id
+    gems: product.get('gems')
+    timestamp: parseInt(req.body.stripe?.timestamp)
+    description: req.body.description
+  }
+
+  charge = yield StripeUtils.createChargeAsync(req.user, product.get('amount'), metadata)
+  payment = yield StripeUtils.createPaymentAsync(req.user, charge, {})
+  
+  # Add terminal subscription to User with extensions for existing subscriptions
+  stripeInfo = _.cloneDeep(req.user.get('stripe') ? {})
+  if productName is 'year_subscription'
+    endDate = new Date()
+    if stripeSubscriptionPeriodEndDate
+      endDate = stripeSubscriptionPeriodEndDate
+    else if _.isString(stripeInfo.free) and new Date() < new Date(stripeInfo.free)
+      endDate = new Date(stripeInfo.free)
+    endDate.setUTCFullYear(endDate.getUTCFullYear() + 1)
+    stripeInfo.free = endDate.toISOString().substring(0, 10)
+  else if productName is 'lifetime_subscription'
+    stripeInfo.free = true
+  else
+    throw new Error('Unsupported product')
+  req.user.set('stripe', stripeInfo)
+  
+  # Add gems to User
+  purchased = _.clone(req.user.get('purchased'))
+  purchased ?= {}
+  purchased.gems ?= 0
+  purchased.gems += parseInt(charge.metadata.gems) if charge.metadata.gems
+  req.user.set('purchased', purchased)
+
+  yield req.user.save()
+  try
+    msg = "#{req.user.get('email')} paid #{formatDollarValue(payment.get('amount')/100)} for year campaign subscription"
+    slack.sendSlackMessage msg, ['tower']
+  catch error
+    SubscriptionHandler.logSubscriptionError(req.user, "Year sub sale Slack tower msg error: #{JSON.stringify(error)}")
+  res.send(req.user.toObject({req}))
+
+  
+# TODO: Delete all 'unsubscribeRecipient' code when managed subscriptions are no more 
+unsubscribeRecipientEndpoint = expressWrap (req, res) ->
+  user = req.user
+  
+  # wraps the un-refactored, deprecated subscription handler code
+  try
+    recipient = yield database.getDocFromHandle(req, User, {handleName: 'recipientHandle'})
+    yield unsubscribeRecipientAsync(req, res, user, recipient)
+  catch err
+    if err.res and err.code
+      throw new errors.NetworkError(err.res, {code: err.code})
+    else
+      throw err
+  res.send(req.user.toObject({req}))
+  
+unsubscribeRecipient = (req, res, user, recipient, done) ->
+  deleteUserStripeProp = (user, propName) ->
+    stripeInfo = _.cloneDeep(user.get('stripe') ? {})
+    delete stripeInfo[propName]
+    if _.isEmpty stripeInfo
+      user.set 'stripe', undefined
+    else
+      user.set 'stripe', stripeInfo
+
+  unless recipient
+    SubscriptionHandler.logSubscriptionError(user, "Recipient #{email} not found.")
+    return done({res: 'Database error.', code: 500})
+
+  # Check recipient is currently sponsored
+  stripeRecipient = recipient.get 'stripe' ? {}
+  if stripeRecipient?.sponsorID isnt user.id
+    SubscriptionHandler.logSubscriptionError(user, "Recipient #{recipient.id} not sponsored by #{user.id}. ")
+    return done({res: 'Can only unsubscribe sponsored subscriptions.', code: 403})
+
+  # Find recipient subscription
+  stripeInfo = _.cloneDeep(user.get('stripe') ? {})
+  for sponsored in stripeInfo.recipients
+    if sponsored.userID is recipient.id
+      sponsoredEntry = sponsored
+      break
+  unless sponsoredEntry?
+    SubscriptionHandler.logSubscriptionError(user, 'Unable to find recipient subscription. ')
+    return done({res: 'Database error.', code: 500})
+
+  Product.findOne({name: 'basic_subscription'}).exec (err, product) =>
+    return SubscriptionHandler.sendDatabaseError(res, err) if err
+    return SubscriptionHandler.sendNotFoundError(res, 'basic_subscription product not found') if not product
+
+    # Update recipient user
+    deleteUserStripeProp(recipient, 'sponsorID')
+    recipient.save (err) =>
+      if err
+        SubscriptionHandler.logSubscriptionError(user, 'Recipient user save unsubscribe error. ' + err)
+        return done({res: 'Database error.', code: 500})
+
+      # Cancel Stripe subscription
+      stripe.customers.cancelSubscription stripeInfo.customerID, sponsoredEntry.subscriptionID, (err) =>
+        if err
+          SubscriptionHandler.logSubscriptionError(user, "Stripe cancel sponsored subscription failed. " + err)
+          return done({res: 'Database error.', code: 500})
+
+        # Update sponsor user
+        _.remove(stripeInfo.recipients, (s) -> s.userID is recipient.id)
+        delete stripeInfo.unsubscribeEmail
+        user.set('stripe', stripeInfo)
+        req.body.stripe = stripeInfo
+        user.save (err) =>
+          if err
+            SubscriptionHandler.logSubscriptionError(user, 'Sponsor user save unsubscribe error. ' + err)
+            return done({res: 'Database error.', code: 500})
+
+          return done() unless stripeInfo.sponsorSubscriptionID?
+
+          # Update sponsored subscription quantity
+          options =
+            quantity: getSponsoredSubsAmount(product.get('amount'), stripeInfo.recipients.length, stripeInfo.subscriptionID?)
+          stripe.customers.updateSubscription stripeInfo.customerID, stripeInfo.sponsorSubscriptionID, options, (err, subscription) =>
+            if err
+              SubscriptionHandler.logSubscriptionError(user, 'Sponsored subscription quantity update error. ' + JSON.stringify(err))
+              return done({res: 'Database error.', code: 500})
+            done()
+
+unsubscribeRecipientAsync = Promise.promisify(unsubscribeRecipient)
       
 module.exports = {
   subscribeWithPrepaidCode
   subscribeUser
   unsubscribeUser
+  unsubscribeRecipientEndpoint
+  purchaseProduct
 }

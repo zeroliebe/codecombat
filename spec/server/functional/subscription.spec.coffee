@@ -11,6 +11,8 @@ Payment = require '../../../server/models/Payment'
 Prepaid = require '../../../server/models/Prepaid'
 Product = require '../../../server/models/Product'
 request = require '../request'
+libUtils = require '../../../server/lib/utils'
+moment = require 'moment'
 
 subPrice = 100
 subGems = 3500
@@ -851,3 +853,77 @@ describe 'Subscriptions', ->
                       expect(payment.get('amount')).toBeLessThan(subPrice)
                       nockDone()
                       done()
+
+
+describe 'DELETE /db/user/:handle/stripe/recipients/:recipientHandle', ->
+  
+  beforeEach utils.wrap ->
+    yield utils.clearModels([User])
+    
+    @recipient1 = yield utils.initUser()
+    @recipient2 = yield utils.initUser()
+    @sponsor = yield utils.initUser({
+      stripe: {
+        customerID: 'a'
+        sponsorSubscriptionID: '1'
+        recipients: [
+          {
+            userID: @recipient1.id
+            subscriptionID: '2'
+            couponID: 'free'
+          }
+          {
+            userID: @recipient2.id
+            subscriptionID: '3'
+            couponID: 'free'
+          }
+        ]
+      }
+    })
+    yield @recipient1.update({$set: {stripe: {sponsorID: @sponsor.id}}})
+    yield @recipient2.update({$set: {stripe: {sponsorID: @sponsor.id}}})
+    yield utils.populateProducts()
+    spyOn(stripe.customers, 'cancelSubscription').and.callFake (cId, sId, cb) -> cb(null)
+    spyOn(stripe.customers, 'updateSubscription').and.callFake (cId, sId, opts, cb) -> cb(null)
+    
+  it 'unsubscribes the given recipient', utils.wrap ->
+    yield utils.loginUser(@sponsor)
+    url = utils.getURL("/db/user/#{@sponsor.id}/stripe/recipients/#{@recipient1.id}")
+    [res, body] = yield request.delAsync({url, json:true})
+    expect(res.statusCode).toBe(200)
+    expect(res.body.stripe.recipients.length).toBe(1)
+    expect(res.body.stripe.recipients[0].userID).toBe(@recipient2.id)
+    expect((yield User.findById(@sponsor.id)).get('stripe').recipients.length).toBe(1)
+    expect((yield User.findById(@recipient1.id)).get('stripe')).toBeUndefined()
+    expect((yield User.findById(@recipient2.id)).get('stripe')).toBeDefined()
+
+    
+describe 'POST /db/products/:handle/purchase', ->
+  
+  beforeEach utils.wrap ->
+    yield utils.clearModels([User, Payment])
+    yield utils.populateProducts()
+    @user = yield utils.initUser()
+    yield utils.loginUser(@user)
+    spyOn(stripe.customers, 'create').and.callFake (newCustomer, cb) -> cb(null, {id: 'cus_1'})
+    spyOn(libUtils, 'findStripeSubscriptionAsync').and.returnValue(Promise.resolve(null))
+    spyOn(stripe.charges, 'create').and.callFake (opts, cb) -> 
+      cb(null, _.assign({id: 'charge_1'}, _.pick(opts, 'metadata', 'amount', 'customer')))
+    
+    
+  it 'allows purchase of a year subscription', utils.wrap ->
+    url = utils.getURL('/db/products/year_subscription/purchase')
+    json = {stripe: { token: '1', timestamp: new Date() }}
+    [res, body] = yield request.postAsync({url, json})
+    expect(moment(res.body.stripe.free).isAfter(moment().add(1, 'year').subtract(1, 'day'))).toBe(true)
+    expect(res.statusCode).toBe(200)
+
+  it 'allows purchase of a lifetime subscription', utils.wrap ->
+    url = utils.getURL('/db/products/lifetime_subscription/purchase')
+    json = {stripe: { token: '1', timestamp: new Date() }}
+    [res, body] = yield request.postAsync({url, json})
+    expect(res.body.stripe.free).toBe(true)
+    expect(res.statusCode).toBe(200)
+    product = yield Product.findOne({name:'lifetime_subscription'})
+    payment = yield Payment.findOne()
+    expect(product.get('amount')).toBe(payment.get('amount'))
