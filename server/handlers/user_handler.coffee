@@ -155,9 +155,16 @@ UserHandler = class UserHandler extends Handler
           callback({res: 'Subscription error.', code: 500})
         )
       else if hasPlan and not wantsPlan
-        SubscriptionHandler.unsubscribeUser(req, user, (err) ->
-          return callback(err) if err
-          return callback(null, req, user)
+        middleware.subscriptions.unsubscribeUser(req, user)
+        .then(-> callback(null, req, user))
+        .catch((err) ->
+          if err instanceof errors.NetworkError
+            return callback({res: err.message, code: err.code})
+          if err.res and err.code
+            callback(err)
+          console.log err.stack # TODO: Make sure runtime errors are logged properly
+          SubscriptionHandler.logSubscriptionError(user, 'Subscription error: '+(err.type or err.message))
+          callback({res: 'Subscription error.', code: 500})
         )
 
     # Discount setting

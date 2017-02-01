@@ -181,24 +181,6 @@ class SubscriptionHandler extends Handler
                   @sendSuccess(res, user)
 
 
-  unsubscribeUser: (req, user, done) ->
-    # Check if user is subscribing someone else
-    return @unsubscribeRecipient(req, user, done) if req.body.stripe?.unsubscribeEmail?
-
-    stripeInfo = _.cloneDeep(user.get('stripe') ? {})
-    stripe.customers.cancelSubscription stripeInfo.customerID, stripeInfo.subscriptionID, { at_period_end: true }, (err) =>
-      if err
-        @logSubscriptionError(user, 'Stripe cancel subscription error. ' + err)
-        return done({res: 'Database error.', code: 500})
-      delete stripeInfo.planID
-      user.set('stripe', stripeInfo)
-      req.body.stripe = stripeInfo
-      user.save (err) =>
-        if err
-          @logSubscriptionError(user, 'User save unsubscribe error. ' + err)
-          return done({res: 'Database error.', code: 500})
-        done()
-
   unsubscribeRecipient: (req, user, done) ->
     return done({res: 'Database error.', code: 500}) unless req.body.stripe?.unsubscribeEmail?
 

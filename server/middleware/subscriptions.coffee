@@ -8,6 +8,7 @@ Promise = require('bluebird')
 { findStripeSubscription } = require '../lib/utils'
 findStripeSubscriptionAsync = Promise.promisify(findStripeSubscription)
 Product = require '../models/Product'
+User = require '../models/User'
 
 subscribeWithPrepaidCode = wrap (req, res) ->
   { ppc } = req.body
@@ -190,8 +191,20 @@ updateUser = co.wrap (req, user, customer, subscription, increment) ->
     user.set('purchased', purchased)
 
   yield user.save()
+
+
+unsubscribeUser = co.wrap (req, user) ->
+  stripeInfo = _.cloneDeep(user.get('stripe') ? {})
+  yield stripe.customers.cancelSubscription(stripeInfo.customerID, stripeInfo.subscriptionID, { at_period_end: true })
+  delete stripeInfo.planID
+  user.set('stripe', stripeInfo)
+  req.body.stripe = stripeInfo
+  yield user.save()
+
+
       
 module.exports = {
   subscribeWithPrepaidCode
   subscribeUser
+  unsubscribeUser
 }
