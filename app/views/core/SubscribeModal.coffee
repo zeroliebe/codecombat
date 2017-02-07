@@ -42,20 +42,24 @@ module.exports = class SubscribeModal extends ModalView
   onLoaded: ->
     @basicProduct = @products.findWhere { name: 'basic_subscription' }
     @yearProduct = @products.findWhere { name: 'year_subscription' }
+    @lifetimeProduct = @products.findWhere { name: 'lifetime_subscription' }
     if countrySpecificProduct = @products.findWhere { name: "#{me.get('country')}_basic_subscription" }
       @basicProduct = countrySpecificProduct
       @yearProduct = @products.findWhere { name: "#{me.get('country')}_year_subscription" }  # probably null
     super()
+
+  getRenderData: ->
+    context = super(arguments...)
+    if @basicProduct
+      context.gems = @basicProduct.get('gems')
+      context.basicPrice = (@basicProduct.get('amount') / 100).toFixed(2)
+    return context
 
   afterRender: ->
     super()
     @setupParentButtonPopover()
     @setupParentInfoPopover()
     @setupPaymentMethodsInfoPopover()
-    if @basicProduct
-      @$el.find('.gem-amount').html $.i18n.t('subscribe.feature4').replace('{{gems}}', @basicProduct.get('gems'))
-      if @basicProduct.get('gems') < 3500
-        @$el.find('[data-i18n="subscribe.feature6"]').parents('tr').hide()
     @playSound 'game-menu-open'
 
   setupParentButtonPopover: ->
