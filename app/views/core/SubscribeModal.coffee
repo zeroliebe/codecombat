@@ -27,11 +27,16 @@ module.exports = class SubscribeModal extends ModalView
     'click .purchase-button': 'onClickPurchaseButton'
     'click .sale-button': 'onClickSaleButton'
 
-  constructor: (options) ->
+  constructor: (options={}) ->
     super(options)
     @state = 'standby'
-    @products = new Products()
-    @supermodel.loadCollection(@products, 'products')
+    if options.products
+      # this is just to get the test demo to work
+      @products = options.products
+      @onLoaded()
+    else
+      @products = new Products()
+      @supermodel.loadCollection(@products, 'products')
     @trackTimeVisible({ trackViewLifecycle: true })
 
   onLoaded: ->

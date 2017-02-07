@@ -14,101 +14,47 @@
       div#close-modal
         span.glyphicon.glyphicon-remove
 
-      div.comparison-blurb(data-i18n="[html]subscribe.comparison_blurb")
-      table.table.table-condensed.table-bordered.comparison-table
-        thead
+      div.paper-area
+        div.benefits-header.text-center(data-i18n="[html]subscribe.comparison_blurb")
+          
+        table
           tr
-            if me.isOnPremiumServer()
-              th
-            else
-              th.free-cell(data-i18n="subscribe.free", colspan=2)
-            th(data-i18n="subscribe.premium")
-        tbody
+            th 330+ Levels
+            th 3,500 Gems
+            th Make Games
+            th Build Websites
           tr
-            td.feature-description
-              span(data-i18n="[html]subscribe.feature1", data-i18n-options='{"levelsCount": ' + view.i18nData.levelsCount + ', "worldsCount": ' + view.i18nData.worldsCount + '}')
-            if !me.isOnPremiumServer()
-              td.center-ok.free-cell
-                span.glyphicon.glyphicon-ok
-            td.center-ok
-              span.glyphicon.glyphicon-ok
-          tr
-            td.feature-description
-              span(data-i18n="[html]subscribe.feature3", data-i18n-options='{"bonusLevelsCount": ' + view.i18nData.bonusLevelsCount + '}'))
-            if !me.isOnPremiumServer()
-              td.free-cell
-            td.center-ok
-              span.glyphicon.glyphicon-ok
-          // Could try testing out things like features 6-8 in a new design with more space
-          //tr
-          //  td.feature-description
-          //    span(data-i18n="[html]subscribe.feature7")
-          //  if !me.isOnPremiumServer()
-          //    td.free-cell
-          //  td.center-ok
-          //    span.glyphicon.glyphicon-ok
-          //tr
-          //  td.feature-description
-          //    span(data-i18n="subscribe.feature6")
-          //  if !me.isOnPremiumServer()
-          //    td.free-cell
-          //  td.center-ok
-          //    span.glyphicon.glyphicon-ok
-          //if me.getCampaignAdsGroup() === 'leaderboard-ads'
-          //  tr
-          //    td.feature-description
-          //      span(data-i18n="[html]subscribe.feature8")
-          //    if !me.isOnPremiumServer()
-          //      td.free-cell
-          //    td.center-ok
-          //      span.glyphicon.glyphicon-ok
-          tr
-            td.feature-description
-              span(data-i18n="[html]subscribe.feature_game_dev")
-            if !me.isOnPremiumServer()
-              td.free-cell
-            td.center-ok
-              span.glyphicon.glyphicon-ok
-          tr
-            td.feature-description
-              span(data-i18n="[html]subscribe.feature_web_dev")
-            if !me.isOnPremiumServer()
-              td.free-cell
-            td.center-ok
-              span.glyphicon.glyphicon-ok
-          tr
-            td.feature-description
-              span(data-i18n="[html]subscribe.feature2", data-i18n-options='{"heroesCount": ' + view.i18nData.heroesCount + '}')
-            if !me.isOnPremiumServer()
-              td.free-cell
-            td.center-ok
-              span.glyphicon.glyphicon-ok
-          tr
-            td.feature-description.gem-amount
-              span(data-i18n="[html]subscribe.feature4")
-            if !me.isOnPremiumServer()
-              td.free-cell
-            td.center-ok
-              span.glyphicon.glyphicon-ok
+            td available
+            td per month
+            td in Game Dev Worlds
+            td in Web Dev Worlds
+            
+        .container-fluid
+          .row
+            .col-xs-6.option-col
+              .option-header.text-center Monthly Subscription
+              .price $9.99
+              button.btn.btn-lg.btn-illustrated.purchase-button Subscribe Now
+                
+            .col-xs-6.option-col
+              .option-header.text-center Lifetime Subscription
+              .price $79.99
+              button.btn.btn-lg.btn-illustrated.sale-button Buy Now
+            
+        p 
+          | Kids! We'll send an email to your parents so they can purchase a subscription for you.
+          =" "
+          a Ask Your Parent
+          
+        p
+          | Need help with payment options? Email
+          =" "
+          a(href="mailto:support@codecombat.com") support@codecombat.com
+          =" "
+          | if you have any questions.
 
-      if view.basicProduct
-        .premium-pricing
-          span(data-i18n="subscribe.premium_pricing_prefix")
-          span= ' '
-          span $#{(view.basicProduct.get('amount') / 100)}/
-          span(data-i18n="subscribe.month")
-          span= ' '
-          span(data-i18n="subscribe.premium_pricing_suffix")
-  
-        #parents-info(data-i18n="subscribe.parents")
-        #payment-methods-info(data-i18n="subscribe.payment_methods")
 
-      .subscribe-actions
-        if !me.isOnPremiumServer()
-          button.btn.btn-lg.btn-illustrated.parent-button(data-i18n="subscribe.parent_button")
-        if view.yearProduct
-          button.btn.btn-lg.btn-illustrated.sale-button(data-i18n="[title]subscribe.sale_button_title", data-i18n="subscribe.sale_button")
-        button.btn.btn-lg.btn-illustrated.purchase-button(data-i18n="subscribe.subscribe_title")
+
 
       if view.state === 'declined'
         #declined-alert.alert.alert-danger.alert-dismissible
