@@ -93,8 +93,13 @@
     
     ul
       list-style: none
-      text-align: center
       padding: 0
+      font-size: 16px
+      font-weight: bold
+      
+    hr
+      border-top: 1px solid gray
+      margin: 20px 40px
       
     th
       font-size: 36px
@@ -235,11 +240,10 @@
       pointer-events: none
 
     &:hover
-      border-image: url(/images/level/code_toolbar_submit_button_zazz.png) 14 20 20 20 fill round
-      color: white
+      border-image: url(/images/common/button-background-primary-disabled.png) 14 20 20 20 fill round
 
     &:active
-      border-image: url(/images/level/code_toolbar_submit_button_zazz_pressed.png) 14 20 20 20 fill round
+      border-image: url(/images/common/button-background-primary-pressed.png) 14 20 20 20 fill round
       padding: 2px 0 0 2px
       color: white
 
@@ -260,7 +264,11 @@
     font-size: 24px
     line-height: 30px
     border-style: solid
-    border-image: url(/images/level/code_toolbar_submit_button_active.png) 14 20 20 20 fill round
+    border-image: url(/images/common/button-background-success-active.png) 14 20 20 20 fill round
+    &:hover
+      border-image: url(/images/common/button-background-success-inactive.png) 14 20 20 20 fill round
+    &:active
+      border-image: url(/images/common/button-background-success-pressed.png) 14 20 20 20 fill round
     border-width: 14px 20px 20px 20px
     color: darken(white, 5%)
 
@@ -298,7 +306,7 @@ html.no-borderimage #subscribe-modal
       border: 0
 
   .purchase-button
-    background-image: url(/images/level/code_toolbar_submit_button_active.png)
+    background-image: url(/images/level/button-background-success-active.png)
     &:hover
       background-image: url(/images/level/code_toolbar_submit_button_zazz.png)
 
