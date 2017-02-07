@@ -64,10 +64,10 @@ module.exports = class SubscribeModal extends ModalView
 
   setupParentButtonPopover: ->
     popoverTitle = $.i18n.t 'subscribe.parent_email_title'
-    popoverTitle += '<button type="button" class="close" onclick="$(&#39;.parent-button&#39;).popover(&#39;hide&#39;);">&times;</button>'
+    popoverTitle += '<button type="button" class="close" onclick="$(&#39;.parent-link&#39;).popover(&#39;hide&#39;);">&times;</button>'
     popoverContent = ->
-      $('.parent-button-popover-content').html()
-    @$el.find('.parent-button').popover(
+      $('.parent-link-popover-content').html()
+    @$el.find('.parent-link').popover(
       animation: true
       html: true
       placement: 'top'
@@ -133,20 +133,14 @@ module.exports = class SubscribeModal extends ModalView
       @$el.find('.popover-content .parent-input').parent().addClass('has-error')
       @$el.find('.popover-content .parent-email-validator').show()
       return false
-
-    request = @supermodel.addRequestResource 'send_one_time_email', {
-      url: '/db/user/-/send_one_time_email'
-      data: {email: email, type: 'subscribe modal parent'}
-      method: 'POST'
-    }, 0
-    request.load()
-
+    me.sendParentEmail(email)
+    
     @$el.find('.popover-content .email-parent-form').hide()
     @$el.find('.popover-content .email-parent-complete').show()
     false
 
   onClickParentEmailCompleteButton: (e) ->
-    @$el.find('.parent-button').popover('hide')
+    @$el.find('.parent-link').popover('hide')
 
   onClickPurchaseButton: (e) ->
     return unless @basicProduct

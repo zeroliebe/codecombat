@@ -62,7 +62,7 @@
         p 
           span(data-i18n="subscribe.kids_message_1")
           =" "
-          a(data-i18n="subscribe.kids_message_2")
+          a.parent-link(data-i18n="subscribe.kids_message_2")
           
         p
           span(data-i18n="subscribe.support_part1")
@@ -87,7 +87,7 @@
           p(data-i18n="loading_error.unknown")
           p= view.stateMessage
 
-    .parent-button-popover-content.hidden
+    .parent-link-popover-content.hidden
       .email-parent-form
         p(data-i18n="subscribe.parent_email_description")
         form
@@ -98,4 +98,4 @@
           button.parent-send.btn.btn-default(type='submit', data-i18n="subscribe.parent_email_send")
       .email-parent-complete
         p(data-i18n="subscribe.parent_email_sent")
-        button.btn(type='button', onclick="$('.parent-button').popover('hide');", data-i18n="modal.close")
+        button.btn(type='button', onclick="$('.parent-link').popover('hide');", data-i18n="modal.close")
