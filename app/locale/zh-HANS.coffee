@@ -82,7 +82,7 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
     about: "关于"
     contact: "联系我们"
     twitter_follow: "关注"
-    my_classrooms: "我的教室" # {change}
+    my_classrooms: "我的班级" # {change}
     my_courses: "我的课程"
     careers: "招聘"
     facebook: "Facebook"
@@ -169,10 +169,10 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
     self: "自身" # {change}
     hero: "英雄"
     this: "自身" # {change}
-    or: "或者"
-    "||": "或者"
-    and: "并且"
-    "&&": "并且"
+    or: "或"
+    "||": "或"
+    and: "与"
+    "&&": "与"
     not: "非"
     "!": "非"
     "=": "赋值"
@@ -383,9 +383,9 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
     last_name: "名"
     last_initial: "（姓）首大写字母"
     username: "用户名"
-#    contact_us: "Contact Us"
-#    close_window: "Close Window"
-#    learn_more: "Learn More"
+    contact_us: "联系我们"
+    close_window: "关闭窗口"
+    learn_more: "了解更多"
 
   units:
     second: "秒"
@@ -404,11 +404,11 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
     years: "年"
 
   play_level:
-#    directions: "Directions"
-#    edit_level: "Edit Level"
-#    explore_codecombat: "Explore CodeCombat"
-#    finished_hoc: "I'm finished with my Hour of Code"
-#    get_certificate: "Get your certificate!"
+    directions: "指南"
+    edit_level: "编辑关卡"
+    explore_codecombat: "探索CodeCombat"
+    finished_hoc: "我用我的一小时编程完成了"
+    get_certificate: "获得你的证书!"
     level_complete: "关卡已完成"
     completed_level: "完成关卡:"
     course: "课程:"
@@ -435,7 +435,7 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
     reload_title: "重载所有代码？"
     reload_really: "确定重载这一关，返回开始处吗？"
     reload_confirm: "重载所有"
-#    test_level: "Test Level"
+    test_level: "测试关卡"
     victory: "胜利"
     victory_title_prefix: ""
     victory_title_suffix: " 完成"
@@ -613,11 +613,11 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
     price: "x{{gems}} / 月"
 
   subscribe:
-#    subscribe_modal_title: "CodeCombat Premium"
+    subscribe_modal_title: "订阅CodeCombat"
     comparison_blurb: "亲，订阅CodeCombat，大力的提升您的技能！" # {change}
-#    premium_pricing_prefix: "Get Premium for just"
-#    premium_pricing_suffix: "and become a master coder."
-#    premium: "Premium" # Make sure the following feature translations don't go onto two lines
+    premium_pricing_prefix: "现在就来订阅"
+    premium_pricing_suffix: "和成为一名编程大师."
+    premium: "订阅" # Make sure the following feature translations don't go onto two lines
     feature1: "__levelsCount__+ 基本关卡（__worldsCount__个世界）" # {change}
     feature2: "__heroesCount__ 个强大 <strong>英雄</strong>以及各式非凡技能!" # {change}
     feature3: "__bonusLevelsCount__+ 奖励关卡" # {change}
@@ -625,8 +625,8 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
     feature6: "专业邮件支援"
     feature7: "私人 <strong>部落</strong>"
     feature8: "<strong>无广告！</strong>"
-#    feature_game_dev: "Make games for your friends to play in our <strong>Game Dev Worlds</strong>"
-#    feature_web_dev: "Build websites and apps with HTML, CSS, and jQuery in our <strong>Web Dev Worlds</strong>"
+    feature_game_dev: "在我们的<strong>游戏开发世界</strong>中为你的朋友制作游戏"
+    feature_web_dev: "在我们的<strong>网络开发世界</strong>中用HTML, CSS, and jQuery开发网站和应用"
     free: "免费"
     month: "月"
     must_be_logged: "您需要先登入。请先注册或者在上方的目录中点击登入。"
@@ -796,8 +796,8 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
     elliot_blurb: "读心者"
     lisa_title: "市场开发代表" # {change}
     lisa_blurb: "坚韧不拔的人"
-    sean_title: "领土经理"
-#    liz_title: "Territory Manager"
+    sean_title: "区域经理"
+    liz_title: "区域经理"
     retrostyle_title: "插画师"
     retrostyle_blurb: "复古风格的游戏"
     jose_title: "音乐"
@@ -854,8 +854,8 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
   teachers:
     licenses_needed: "需要许可"
 
-#  special_offer:
-#    special_offer: "Special Offer"
+  special_offer:
+    special_offer: "Special Offer"
 #    project_based_title: "Project-Based Courses"
 #    project_based_description: "Web and Game Development courses feature shareable final projects."
 #    great_for_clubs_title: "Great for clubs and electives"
@@ -882,18 +882,18 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
 #    wd1: "Web Development 1"
 #    gd: "Game Development"
 #    gd1: "Game Development 1"
-#    maximum_students: "Maximum # of Students"
-#    unlimited: "Unlimited"
-#    priority_support: "Priority support"
-#    yes: "Yes"
-#    price_per_student: "__price__ per student"
-#    pricing: "Pricing"
-#    free: "Free"
-#    purchase: "Purchase"
-#    courses_prefix: "Courses"
-#    courses_suffix: ""
-#    course_prefix: "Course"
-#    course_suffix: ""
+    maximum_students: "学生最大数 # "
+    unlimited: "无限制"
+    priority_support: "优先提供"
+    yes: "是"
+    price_per_student: "每个学生 __price__ "
+    pricing: "价格"
+    free: "免费"
+    purchase: "支付"
+    courses_prefix: "课程"
+    courses_suffix: ""
+    course_prefix: "课程"
+    course_suffix: ""
 
   teachers_quote:
     subtitle: "将 CodeCombat 带到您的班级、俱乐部、学校甚至地区！"
@@ -2041,7 +2041,7 @@ module.exports = nativeDescription: "简体中文", englishDescription: "Chinese
     code_description_prefix: "所有由CodeCombat拥有或是托管在CodeCombat.com的代码，在GitHub版本库或者CodeCombat.com数据库，以上许可协议都依照"
     mit_license_url: "MIT 许可证"
     code_description_suffix: "这包括所有CodeCombat公开的制作关卡用的系统和组件代码。"
-    art_title: "美术和音乐 - Creative Commons"
+    art_title: "美术和音乐 - 知识共享"
     art_description_prefix: "所有共通的内容都在"
     cc_license_url: "Creative Commons Attribution 4.0 International License"
     art_description_suffix: "条款下公开。共通内容是指所有CodeCombat发布出来用于制作关卡的内容。这包括："
